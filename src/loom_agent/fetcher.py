@@ -3,7 +3,6 @@
 
 import os
 import re
-import tempfile
 import subprocess
 from enum import Enum
 from pathlib import Path
