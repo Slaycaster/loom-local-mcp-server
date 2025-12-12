@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 # Configuration from environment or defaults
 VIDEOS_DIR = os.environ.get("LOOM_VIDEOS_DIR", "/videos")
 FRAMES_DIR = os.environ.get("LOOM_FRAMES_DIR", "/tmp/loom-frames")
+# Host path for frames - used in responses so Claude Code can read them
+FRAMES_HOST_DIR = os.environ.get("LOOM_FRAMES_HOST_DIR", FRAMES_DIR)
 MAX_VIDEO_DURATION = 30 * 60  # 30 minutes in seconds
 
 # Initialize MCP server
@@ -98,16 +100,26 @@ async def extract_video_frames(
             max_frames=max_frames
         )
 
-        # Convert to FrameInfo models
-        frames = [FrameInfo(**f) for f in frames_data]
+        # Convert to FrameInfo models with host-accessible paths
+        frames = []
+        for f in frames_data:
+            # Replace container path with host path for Claude Code to read
+            host_path = f["path"].replace(FRAMES_DIR, FRAMES_HOST_DIR)
+            frames.append(FrameInfo(
+                path=host_path,
+                timestamp=f["timestamp"],
+                scene_score=f["scene_score"],
+                duration_until_next=f.get("duration_until_next")
+            ))
 
-        # Build response
+        # Build response with host-accessible output directory
+        host_output_dir = str(output_dir).replace(FRAMES_DIR, FRAMES_HOST_DIR)
         response = ExtractionResponse(
             status="success",
             video_duration=extractor.format_timestamp(duration),
             frames_extracted=len(frames),
             frames=frames,
-            message=f"Extracted {len(frames)} key frames from {extractor.format_timestamp(duration)} video. Frames saved to {output_dir}/"
+            message=f"Extracted {len(frames)} key frames from {extractor.format_timestamp(duration)} video. Frames saved to {host_output_dir}/"
         )
 
         logger.info(f"Successfully extracted {len(frames)} frames")

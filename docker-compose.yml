@@ -11,3 +11,5 @@ services:
     environment:
       - LOOM_VIDEOS_DIR=/videos
       - LOOM_FRAMES_DIR=/tmp/loom-frames
+      # Host path for responses - so Claude Code can read the frames
+      - LOOM_FRAMES_HOST_DIR=${HOME}/loom-frames
