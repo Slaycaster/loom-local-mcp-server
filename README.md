@@ -1,4 +1,4 @@
-# Loom Agent
+# Loom Local MCP Server
 
 MCP server for extracting key frames from Loom videos or local files for debugging analysis.
 
