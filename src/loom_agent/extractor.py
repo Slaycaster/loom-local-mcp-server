@@ -142,11 +142,13 @@ class FrameExtractor:
         # Find all extracted frame files
         frame_files = sorted(output_dir.glob("frame_*.png"))
 
-        if not frame_files:
-            # No scenes detected - extract a single frame at the start
-            self._extract_single_frame(video_path, output_dir / "frame_001.png")
-            frame_files = [output_dir / "frame_001.png"]
-            timestamps = [0.0]
+        if len(frame_files) < 3:
+            # Scene detection found too few frames - use interval-based extraction
+            # This is common for screen recordings where changes are subtle
+            duration = self.get_video_duration(video_path)
+            return self._extract_frames_by_interval(
+                video_path, output_dir, duration, max_frames
+            )
 
         # Build frame info list
         frames = []
@@ -180,3 +182,59 @@ class FrameExtractor:
             "-y"
         ]
         subprocess.run(cmd, capture_output=True, timeout=30)
+
+    def _extract_frames_by_interval(
+        self,
+        video_path: str,
+        output_dir: Path,
+        duration: float,
+        max_frames: int
+    ) -> list[dict]:
+        """
+        Extract frames at regular intervals throughout the video.
+        Fallback when scene detection doesn't find enough frames.
+        """
+        # Clean up any existing frames from failed scene detection
+        for old_frame in output_dir.glob("frame_*.png"):
+            old_frame.unlink()
+
+        # Calculate interval - aim for max_frames evenly distributed
+        # Minimum 2 seconds between frames, maximum based on max_frames
+        num_frames = min(max_frames, max(3, int(duration / 2)))
+        interval = duration / (num_frames + 1)
+
+        # Extract frames at calculated timestamps using fps filter
+        fps_value = 1 / interval if interval > 0 else 1
+        output_pattern = str(output_dir / "frame_%03d.png")
+
+        cmd = [
+            "ffmpeg",
+            "-i", video_path,
+            "-vf", f"fps=1/{interval:.2f}",
+            output_pattern,
+            "-y"
+        ]
+
+        subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+
+        # Build frame info list
+        frame_files = sorted(output_dir.glob("frame_*.png"))
+        frames = []
+
+        for i, frame_path in enumerate(frame_files):
+            timestamp = i * interval
+
+            # Calculate duration until next frame
+            if i < len(frame_files) - 1:
+                duration_until_next = self.format_timestamp(interval)
+            else:
+                duration_until_next = None
+
+            frames.append({
+                "path": str(frame_path),
+                "timestamp": self.format_timestamp(timestamp),
+                "scene_score": 0.0,  # Interval-based, not scene-based
+                "duration_until_next": duration_until_next
+            })
+
+        return self.apply_max_frames(frames, max_frames)
