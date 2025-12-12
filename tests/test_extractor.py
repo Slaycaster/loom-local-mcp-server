@@ -1,9 +1,7 @@
 # tests/test_extractor.py
 import pytest
 import tempfile
-import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 from loom_agent.extractor import FrameExtractor, ExtractionError
 
 

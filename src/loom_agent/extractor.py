@@ -1,7 +1,6 @@
 # src/loom_agent/extractor.py
 """Frame extraction using ffmpeg scene detection."""
 
-import os
 import re
 import uuid
 import subprocess
