@@ -23,5 +23,6 @@ RUN mkdir -p /videos /tmp/loom-frames
 ENV LOOM_VIDEOS_DIR=/videos
 ENV LOOM_FRAMES_DIR=/tmp/loom-frames
 
-# Run the MCP server
-CMD ["python", "-m", "loom_agent"]
+# Keep container running - MCP server is started via docker exec
+# when Claude Code connects (stdio transport requires on-demand startup)
+CMD ["tail", "-f", "/dev/null"]
