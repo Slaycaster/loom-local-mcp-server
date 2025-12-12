@@ -1,0 +1,13 @@
+services:
+  loom-agent:
+    build: .
+    container_name: loom-agent
+    restart: unless-stopped
+    volumes:
+      # Inbox for local video files (read-only)
+      - ~/loom-videos:/videos:ro
+      # Output directory for extracted frames (read-write)
+      - ~/loom-frames:/tmp/loom-frames
+    environment:
+      - LOOM_VIDEOS_DIR=/videos
+      - LOOM_FRAMES_DIR=/tmp/loom-frames
