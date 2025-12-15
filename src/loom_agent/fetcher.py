@@ -66,7 +66,6 @@ class VideoFetcher:
         cmd = [
             "yt-dlp",
             "--no-playlist",
-            "--format", "best[ext=mp4]/best",
             "--output", output_template,
             "--print", "after_move:filepath",
             url
