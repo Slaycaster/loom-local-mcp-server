@@ -5,10 +5,11 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp (latest version)
-RUN pip install --no-cache-dir yt-dlp
+# Install yt-dlp and whisper
+RUN pip install --no-cache-dir yt-dlp openai-whisper
 
 # Copy and install Python package
 COPY pyproject.toml .

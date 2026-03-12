@@ -7,9 +7,10 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from loom_agent.models import FrameInfo, ExtractionResponse
+from loom_agent.models import FrameInfo, ExtractionResponse, TranscriptSegment
 from loom_agent.fetcher import VideoFetcher, VideoSource, FetchError
 from loom_agent.extractor import FrameExtractor, ExtractionError
+from loom_agent.transcriber import Transcriber, TranscriptionError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,13 +29,15 @@ mcp = FastMCP("loom-agent")
 # Initialize components
 fetcher = VideoFetcher(videos_dir=VIDEOS_DIR, temp_dir="/tmp")
 extractor = FrameExtractor(output_base_dir=FRAMES_DIR)
+transcriber = Transcriber(model_name=os.environ.get("WHISPER_MODEL", "base"))
 
 
 @mcp.tool()
 async def extract_video_frames(
     source: str,
     threshold: float = 0.3,
-    max_frames: int = 20
+    max_frames: int = 20,
+    include_transcript: bool = False
 ) -> dict:
     """
     Extract key frames from a Loom video URL or local video file
@@ -46,6 +49,8 @@ async def extract_video_frames(
         threshold: Scene change sensitivity (0.0-1.0).
                    Lower = more frames, higher = fewer frames. Default 0.3
         max_frames: Maximum frames to extract as safety cap. Default 20
+        include_transcript: Whether to transcribe the video audio using
+                           Whisper and include timestamped text. Default False
 
     Returns:
         Dictionary with status, frames list, and metadata
@@ -112,6 +117,29 @@ async def extract_video_frames(
                 duration_until_next=f.get("duration_until_next")
             ))
 
+        # Transcribe if requested
+        transcript_segments = []
+        transcript_file_path = None
+        if include_transcript:
+            try:
+                logger.info("Transcribing audio...")
+                segments = transcriber.transcribe(video_path)
+                srt_path = output_dir / "transcript.srt"
+                transcriber.write_srt(segments, srt_path)
+                host_srt_path = str(srt_path).replace(FRAMES_DIR, FRAMES_HOST_DIR)
+                transcript_file_path = host_srt_path
+                transcript_segments = [
+                    TranscriptSegment(
+                        start=extractor.format_timestamp(s["start"]),
+                        end=extractor.format_timestamp(s["end"]),
+                        text=s["text"].strip()
+                    )
+                    for s in segments
+                ]
+                logger.info(f"Transcribed {len(transcript_segments)} segments")
+            except TranscriptionError as e:
+                logger.warning(f"Transcription failed: {e}")
+
         # Build response with host-accessible output directory
         host_output_dir = str(output_dir).replace(FRAMES_DIR, FRAMES_HOST_DIR)
         response = ExtractionResponse(
@@ -119,6 +147,8 @@ async def extract_video_frames(
             video_duration=extractor.format_timestamp(duration),
             frames_extracted=len(frames),
             frames=frames,
+            transcript=transcript_segments,
+            transcript_file=transcript_file_path,
             message=f"Extracted {len(frames)} key frames from {extractor.format_timestamp(duration)} video. Frames saved to {host_output_dir}/"
         )
 
