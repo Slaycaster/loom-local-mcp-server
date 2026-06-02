@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Install CPU-only torch first so Whisper does not pull the CUDA wheel stack.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch
+
 # Install yt-dlp and whisper
 RUN pip install --no-cache-dir yt-dlp openai-whisper
 
